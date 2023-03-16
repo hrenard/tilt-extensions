@@ -1,6 +1,6 @@
 load('ext://restart_process', 'docker_build_with_restart')
 
-def kubebuilder(DOMAIN, GROUP, VERSION, KIND, IMG='controller:latest', CONTROLLERGEN='crd:trivialVersions=true rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases;', DISABLE_SECURITY_CONTEXT=True):
+def kubebuilder(IMG='controller:latest', CONTROLLERGEN='crd:trivialVersions=true rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases;', DISABLE_SECURITY_CONTEXT=True):
 
     DOCKERFILE = '''FROM golang:alpine
     WORKDIR /
@@ -44,6 +44,32 @@ def kubebuilder(DOMAIN, GROUP, VERSION, KIND, IMG='controller:latest', CONTROLLE
             return 'kustomize build config/samples | kubectl apply -f -'
         return 'kubectl apply -f config/samples'
 
+    local(manifests() + generate())
+    
+    if os.path.exists('config/crd'):
+        local_resource('CRD', manifests() + 'kustomize build config/crd | kubectl apply -f -', deps=["api"])
+    
+    k8s_yaml(yaml())
+    
+    deps = ['controllers', 'main.go']
+    deps.append('api')
+    
+    local_resource('Watch&Compile', generate() + binary(), deps=deps, ignore=['*/*/zz_generated.deepcopy.go'])
+    
+    if os.path.exists('config/samples'): 
+        DIRNAME = os.path.basename(os. getcwd())
+        local_resource('Sample YAML', samples(), deps=["./config/samples"], resource_deps=[DIRNAME + "-controller-manager"])
+    
+    docker_build_with_restart(IMG, '.', 
+     dockerfile_contents=DOCKERFILE,
+     entrypoint='/manager',
+     only=['./tilt_bin/manager'],
+     live_update=[
+           sync('./tilt_bin/manager', '/manager'),
+       ]
+    )
+
+def kubebuilder_init(DOMAIN, GROUP, VERSION, KIND, **kwargs):
     installed = local("which kubebuilder")
     print("kubebuilder is present:", installed)
 
@@ -58,24 +84,4 @@ def kubebuilder(DOMAIN, GROUP, VERSION, KIND, IMG='controller:latest', CONTROLLE
     if os.path.exists('api') == False:
         local("kubebuilder create api --resource --controller --group %s --version %s --kind %s" % (GROUP, VERSION, KIND))
     
-    local(manifests() + generate())
-    
-    local_resource('CRD', manifests() + 'kustomize build config/crd | kubectl apply -f -', deps=["api"])
-    
-    k8s_yaml(yaml())
-    
-    deps = ['controllers', 'main.go']
-    deps.append('api')
-    
-    local_resource('Watch&Compile', generate() + binary(), deps=deps, ignore=['*/*/zz_generated.deepcopy.go'])
-    
-    local_resource('Sample YAML', samples(), deps=["./config/samples"], resource_deps=[DIRNAME + "-controller-manager"])
-    
-    docker_build_with_restart(IMG, '.', 
-     dockerfile_contents=DOCKERFILE,
-     entrypoint='/manager',
-     only=['./tilt_bin/manager'],
-     live_update=[
-           sync('./tilt_bin/manager', '/manager'),
-       ]
-    )
+    kubebuilder(**kwargs)
