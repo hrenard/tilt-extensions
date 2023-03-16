@@ -38,6 +38,12 @@ def kubebuilder(DOMAIN, GROUP, VERSION, KIND, IMG='controller:latest', CONTROLLE
     def binary():
         return 'CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -o tilt_bin/manager main.go'
 
+    def samples():
+        # operator-sdk use kutomize
+        if os.path.exists('config/samples/kustomization.yaml'):
+            return 'kustomize build config/samples | kubectl apply -f -'
+        return 'kubectl apply -f config/samples'
+
     installed = local("which kubebuilder")
     print("kubebuilder is present:", installed)
 
@@ -63,7 +69,7 @@ def kubebuilder(DOMAIN, GROUP, VERSION, KIND, IMG='controller:latest', CONTROLLE
     
     local_resource('Watch&Compile', generate() + binary(), deps=deps, ignore=['*/*/zz_generated.deepcopy.go'])
     
-    local_resource('Sample YAML', 'kubectl apply -f ./config/samples', deps=["./config/samples"], resource_deps=[DIRNAME + "-controller-manager"])
+    local_resource('Sample YAML', samples(), deps=["./config/samples"], resource_deps=[DIRNAME + "-controller-manager"])
     
     docker_build_with_restart(IMG, '.', 
      dockerfile_contents=DOCKERFILE,
