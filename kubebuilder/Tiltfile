@@ -44,21 +44,25 @@ def kubebuilder(IMG='controller:latest', CONTROLLERGEN='crd:trivialVersions=true
             return 'kustomize build config/samples | kubectl apply -f -'
         return 'kubectl apply -f config/samples'
 
+    def name(value):
+        DIRNAME = os.path.basename(os. getcwd())
+        return "["+DIRNAME+"] "+value
+
     local(manifests() + generate())
     
     if os.path.exists('config/crd'):
-        local_resource('CRD', manifests() + 'kustomize build config/crd | kubectl apply -f -', deps=["api"])
+        local_resource(name('CRD'), manifests() + 'kustomize build config/crd | kubectl apply -f -', deps=["api"])
     
     k8s_yaml(yaml())
     
     deps = ['controllers', 'main.go']
     deps.append('api')
     
-    local_resource('Watch&Compile', generate() + binary(), deps=deps, ignore=['*/*/zz_generated.deepcopy.go'])
+    local_resource(name('Watch&Compile'), generate() + binary(), deps=deps, ignore=['*/*/zz_generated.deepcopy.go'])
     
     if os.path.exists('config/samples'): 
         DIRNAME = os.path.basename(os. getcwd())
-        local_resource('Sample YAML', samples(), deps=["./config/samples"], resource_deps=[DIRNAME + "-controller-manager"])
+        local_resource(name('Sample YAML'), samples(), deps=["./config/samples"], resource_deps=[DIRNAME + "-controller-manager"])
     
     docker_build_with_restart(IMG, '.', 
      dockerfile_contents=DOCKERFILE,
