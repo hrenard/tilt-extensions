@@ -53,7 +53,7 @@ def kubebuilder(IMG='controller:latest', CONTROLLERGEN='crd:trivialVersions=true
     if os.path.exists('config/crd'):
         local_resource(name('CRD'), manifests() + 'kustomize build config/crd | kubectl apply -f -', deps=["api"])
     
-    k8s_yaml(yaml())
+    k8s_yaml(yaml(), allow_duplicates=True)
     
     deps = ['controllers', 'main.go']
     deps.append('api')
