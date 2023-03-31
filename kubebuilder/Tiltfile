@@ -2,11 +2,11 @@ load('ext://restart_process', 'docker_build_with_restart')
 
 def kubebuilder(IMG='controller:latest', CONTROLLERGEN='crd:trivialVersions=true rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases;', DISABLE_SECURITY_CONTEXT=True):
 
-    DOCKERFILE = '''FROM golang:alpine
+    DOCKERFILE = read_file('Dockerfile.tilt','''FROM golang:alpine
     WORKDIR /
     COPY ./tilt_bin/manager /
     CMD ["/manager"]
-    '''
+    ''')
 
     def yaml():
         data = local('cd config/manager; kustomize edit set image controller=' + IMG + '; cd ../..; kustomize build config/default')
