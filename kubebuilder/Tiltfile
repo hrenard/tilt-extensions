@@ -1,6 +1,6 @@
 load('ext://restart_process', 'docker_build_with_restart')
 
-def kubebuilder(IMG='controller:latest', CONTROLLERGEN='crd:trivialVersions=true rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases;', DISABLE_SECURITY_CONTEXT=True):
+def kubebuilder(IMG='controller:latest', CONTROLLERGEN='crd:trivialVersions=true rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases;', DISABLE_SECURITY_CONTEXT=True, DISABLE_SAMPLES=False):
 
     DOCKERFILE = read_file('Dockerfile.tilt','''FROM golang:alpine
     WORKDIR /
@@ -59,9 +59,7 @@ def kubebuilder(IMG='controller:latest', CONTROLLERGEN='crd:trivialVersions=true
     
     local_resource(name('Watch&Compile'), generate() + binary(), deps=deps, ignore=['*/*/zz_generated.deepcopy.go'])
     
-    if os.path.exists('config/samples'): 
-        DIRNAME = os.path.basename(os. getcwd())
-        local_resource(name('Sample YAML'), samples(), deps=["./config/samples"], resource_deps=[DIRNAME + "-controller-manager"])
+    if not DISABLE_SAMPLES and os.path.exists('config/samples'): 
     
     docker_build_with_restart(IMG, '.', 
      dockerfile_contents=DOCKERFILE,
